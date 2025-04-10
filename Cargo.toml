@@ -1,0 +1,7 @@
+[package]
+name = "midi2rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+midi-msg = {version = "0.7"}
