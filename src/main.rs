@@ -1,54 +1,27 @@
-
 use midi_msg::{ChannelVoiceMsg, MidiMsg, TrackEvent};
 use midi_msg::{MidiFile, Track};
 use std::env;
 use std::fs;
 
+// mod wirte;
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, Debug)]
 struct Note {
     note: u8,
-    velocity: u8,
-    delay: u16,
-    duration: u16,
+    delay: u8,
 }
 
 impl Note {
-    pub fn new(note: u8, velocity: u8,delay: u16, duration: u16) -> Self{
-        Self {
-            note,
-            velocity,
-            delay,
-            duration
-        }
+    pub fn new(note: u8, delay: u8) -> Self {
+        Self { note, delay }
     }
 
     pub fn note(self, note: u8) -> Self {
-        Self {
-            note,
-            ..self
-        }
-    } 
-
-    pub fn velocity(self, velocity: u8) -> Self {
-        Self {
-            velocity,
-            ..self
-        }
+        Self { note, ..self }
     }
 
-    pub fn delay(self, delay: u16) -> Self {
-        Self {
-            delay,
-            ..self
-        }
-    }
-
-    pub fn duration(self, duration: u16) -> Self {
-        Self {
-            duration,
-            ..self
-        }
+    pub fn delay(self, delay: u8) -> Self {
+        Self { delay, ..self }
     }
 }
 
@@ -79,20 +52,21 @@ fn main() {
             Track::Midi(midi) => {
                 for m in midi {
                     let event = &m.event;
-                    
+
                     match event {
-                        MidiMsg::ChannelVoice { channel, msg } => match *msg {
-                            ChannelVoiceMsg::NoteOn { note, velocity } => {
+                        MidiMsg::ChannelVoice { channel: _, msg } => match *msg {
+                            ChannelVoiceMsg::NoteOn { note, velocity: _ } => {
                                 println!("track event: {:?}", m);
-                                note_tmp = note_tmp.note(note).velocity(velocity).delay(m.delta_time as u16);
-                            }
-                            ChannelVoiceMsg::NoteOff { note, velocity } => {
-                                println!("track event: {:?}", m);
-                                note_tmp = note_tmp.duration(m.delta_time as u16);
+                                note_tmp = note_tmp.note(note).delay(m.delta_time as u8);
                                 note_list.push(note_tmp);
-                                
+                            }
+                            ChannelVoiceMsg::NoteOff { note, velocity: _ } => {
+                                println!("track event: {:?}", m);
+                                note_tmp = note_tmp.note(note).delay(0);
+                                note_list.push(note_tmp);
                             }
                             _ => {
+                                println!("track event: {:?}", m);
                                 continue;
                             }
                         },
@@ -111,5 +85,38 @@ fn main() {
     }
 
     // println!("size: {}KB", size_of_val(&MIDI_CONTENT) / 1025);
-    println!("len: {}, size: {}Kb", note_list.len(), note_list.len()*(16*3)/1024);
+    println!(
+        "len: {}, size: {}Kb",
+        note_list.len(),
+        note_list.len() * 2 / 1024
+    );
+
+    let mut midi_rs_content = String::new();
+    midi_rs_content.push_str(&format!(
+        "pub struct Note {{
+        note: u8,
+        delay: u8,
+    }}
+    pub const MIDI_CONTENT: [Note; {}] = [\n\t",
+        note_list.len()
+    ));
+    for note in note_list {
+        midi_rs_content.push_str(&format!(
+            "Note {{note: {},delay: {}}},\n",
+            note.note, note.delay
+        ))
+    }
+    midi_rs_content.push_str(&format!("];"));
+    let _ = fs::write("src/wirte.rs", midi_rs_content).unwrap();
 }
+
+const NOTE_LIST: [Note; 2] = [
+    Note {
+        note: 60,
+        delay: 10,
+    },
+    Note {
+        note: 64,
+        delay: 10,
+    },
+];
